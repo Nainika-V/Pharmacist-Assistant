@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacist Assistant</title>
+</head>
+<body>
+    <h2>Take a Picture of Your Prescription</h2>
+
+    <video id="video" width="300" height="200" autoplay></video>
+    <button onclick="captureImage()">Capture</button>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+    <button onclick="uploadImage()">Upload & Process</button>
+
+    <h3>Extracted Text:</h3>
+    <pre id="corrected_text"></pre>
+
+    <script>
+        let video = document.getElementById("video");
+        let canvas = document.getElementById("canvas");
+        let context = canvas.getContext("2d");
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => console.error("Camera access denied:", err));
+
+        function captureImage() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+
+        function uploadImage() {
+            canvas.toBlob(blob => {
+                let formData = new FormData();
+                formData.append("image", blob, "prescription.jpg");
+
+                fetch("/process_prescription", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById("corrected_text").textContent = "Error: " + data.error;
+                    } else {
+                        let correctedText = data.corrected_text;
+                        correctedText = correctedText.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+                        document.getElementById("corrected_text").innerHTML = `Extracted Text:<br>${correctedText}`;
+                    }
+                })
+                .catch(error => console.error("Fetch error:", error));
+            }, "image/jpeg");
+        }
+    </script>
+</body>
+</html>
